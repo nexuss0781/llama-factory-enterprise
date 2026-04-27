@@ -4,7 +4,7 @@ This repository provides an enterprise-grade, cleaned, and streamlined version o
 
 ## Key Features
 
-*   **Blank Slate Training**: Comprehensive support for initializing and training LLMs from random weights.
+*   **Blank Slate Training**: Comprehensive support for initializing and training LLMs from random weights. Supports multiple data formats including **JSON** and **Parquet** for large-scale training.
 *   **Custom Data Fine-tuning**: Tools and guidance for fine-tuning models on your proprietary datasets.
 *   **Reinforcement Learning**: Integration with DPO/KTO for aligning models with human preferences.
 *   **Catastrophic Forgetting Mitigation**: Strategies, primarily through Parameter-Efficient Fine-Tuning (PEFT) like LoRA, to preserve learned knowledge across training iterations.

@@ -18,25 +18,47 @@ Training an LLM from scratch involves initializing a model with random weights a
 
 ### 2.2 Data Preparation
 
-Your blank slate dataset should be in a format compatible with LLaMA-Factory's data loaders. A common format is JSON Lines, where each line represents a training example.
+Your blank slate dataset should be in a format compatible with LLaMA-Factory's data loaders. The framework supports multiple formats, including **JSON Lines** and **Parquet**.
+
+**JSON Lines format:**
 
 ```json
 {"text": "Your first training sentence."}
 {"text": "Another example sentence for training."}
 ```
 
+**Parquet format:**
+Parquet is highly recommended for large-scale enterprise datasets due to its efficient columnar storage and compression. You can easily convert your data to Parquet using libraries like `pandas` or `pyarrow`.
+
 Store your dataset in the `data/` directory or a specified path. You will need to create a `dataset_info.json` file to register your dataset.
+
+**Registering a JSON dataset:**
 
 ```json
 {
-  "your_blank_slate_dataset": {
-    "file_name": "your_blank_slate_dataset.jsonl",
+  "your_json_dataset": {
+    "file_name": "your_dataset.jsonl",
     "columns": {
       "prompt": "text"
     }
   }
 }
 ```
+
+**Registering a Parquet dataset:**
+
+```json
+{
+  "your_parquet_dataset": {
+    "file_name": "your_dataset.parquet",
+    "columns": {
+      "prompt": "text"
+    }
+  }
+}
+```
+
+LLaMA-Factory automatically detects the file type based on the extension and uses the appropriate loader.
 
 ### 2.3 Configuration for Training
 
