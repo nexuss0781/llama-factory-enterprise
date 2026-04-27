@@ -225,22 +225,60 @@ CUDA_VISIBLE_DEVICES=0 python src/llamafactory/train/dpo.py \
 
 ### 5.1 Mitigating Catastrophic Forgetting
 
-*   **Continual Learning**: Employ techniques like Elastic Weight Consolidation (EWC) or Learning without Forgetting (LwF) to regularize important parameters from previous tasks.
-*   **Replay Buffers**: Mix a small portion of data from previous tasks with the new training data during fine-tuning.
-*   **Parameter-Efficient Fine-Tuning (PEFT)**: Methods like LoRA (used in LLaMA-Factory) only update a small subset of parameters, significantly reducing the risk of catastrophic forgetting compared to full fine-tuning.
-*   **Curriculum Learning**: Gradually introduce new tasks or data, building upon previously acquired knowledge.
+Catastrophic forgetting is a significant challenge in continual learning scenarios, where models are updated with new data or tasks. The LLaMA-Factory codebase, by leveraging the Hugging Face ecosystem, inherently supports several strategies to mitigate this phenomenon:
+
+*   **Parameter-Efficient Fine-Tuning (PEFT)**: LLaMA-Factory extensively utilizes PEFT methods, most notably **LoRA (Low-Rank Adaptation)**. LoRA works by injecting small, trainable matrices into the transformer layers of a pre-trained model, while keeping the vast majority of the original model's parameters frozen. When fine-tuning with LoRA, only these small adapter layers are updated. This approach significantly reduces the number of trainable parameters, thereby:
+    *   **Reducing the risk of overwriting previously learned knowledge**: Since the core weights of the pre-trained model remain unchanged, the model's general capabilities are largely preserved.
+    *   **Lowering computational costs**: Training fewer parameters requires less memory and compute.
+    *   **Enabling modularity**: Different LoRA adapters can be trained for different tasks and then swapped or combined, allowing a single base model to serve multiple specialized functions without interference.
+
+*   **Replay Buffers**: While not explicitly a built-in feature of LLaMA-Factory's direct training scripts, the framework's flexibility allows for the implementation of replay-based strategies. This involves mixing a small, representative subset of data from previous tasks or general domain data with the new training data. By periodically re-exposing the model to older data, it helps reinforce previously learned patterns and prevents their erosion. This can be achieved by creating a custom `dataset_info.json` that combines multiple datasets.
+
+*   **Continual Learning Techniques**: Advanced continual learning techniques like **Elastic Weight Consolidation (EWC)** or **Learning without Forgetting (LwF)** aim to identify and protect parameters critical for previous tasks. While not directly integrated as a one-click option in LLaMA-Factory, the underlying PyTorch and Hugging Face Transformers framework provides the extensibility to implement such regularization terms during the training loop. This would typically involve modifying the custom training scripts within `src/llamafactory/train/`.
+
+*   **Curriculum Learning**: This strategy involves structuring the training process such that the model learns from simpler tasks or more general data before progressing to more complex or specialized tasks. By building knowledge incrementally, the model is less likely to experience abrupt shifts that lead to catastrophic forgetting. This is managed at the data preparation and training schedule level, rather than being a specific codebase feature.
+
+**In summary, the LLaMA-Factory codebase, particularly through its strong support for PEFT methods like LoRA, provides a robust foundation for mitigating catastrophic forgetting. For more advanced scenarios, its modular design allows for the integration of replay buffers and continual learning algorithms.**
 
 ### 5.2 Model Versioning and Knowledge Retention
 
-To manage model evolution and ensure knowledge retention, adopt a robust versioning strategy similar to how large AI companies manage their models.
+Effective model versioning and release management are critical for enterprise AI, ensuring traceability, reproducibility, and the ability to manage model evolution without losing valuable capabilities. Here's a detailed workflow:
 
-1.  **Semantic Versioning**: Use a versioning scheme (e.g., `v1.0.0`, `v1.1.0`, `v2.0.0`) for your trained models. Major versions for significant architectural changes or retraining from scratch, minor versions for major fine-tuning updates, and patch versions for minor bug fixes or small data updates.
-2.  **Immutable Model Artifacts**: Once a model version is trained and validated, package it as an immutable artifact (e.g., Hugging Face model hub format, ONNX, or a custom format). Store these artifacts in a secure, versioned storage system (e.g., S3, Google Cloud Storage).
-3.  **Checkpointing**: During training, regularly save checkpoints. These checkpoints can be used for recovery or for creating intermediate model versions.
-4.  **Evaluation Suites**: Maintain a comprehensive suite of evaluation benchmarks for each model version. This allows for quantitative comparison and ensures that new versions do not degrade performance on critical tasks.
-5.  **A/B Testing and Canary Deployments**: Before fully deploying a new model version, conduct A/B tests or canary deployments to observe its performance in a production environment with a small subset of users.
-6.  **Rollback Strategy**: Always have a clear rollback strategy to revert to a previous stable model version if a new deployment introduces regressions.
+1.  **Semantic Versioning for Models**: Adopt a strict [Semantic Versioning](https://semver.org/) scheme (e.g., `MAJOR.MINOR.PATCH`) for your trained models, similar to software releases:
+    *   **MAJOR version increment** (`v2.0.0`): Reserved for significant architectural changes, retraining from scratch on a substantially new dataset, or major shifts in model capabilities (e.g., moving from a 7B to a 70B parameter model, or a new base model family).
+    *   **MINOR version increment** (`v1.1.0`): For major fine-tuning updates, significant additions to the training data, or improvements in specific task performance (e.g., fine-tuning on a new domain-specific dataset, applying a new DPO alignment).
+    *   **PATCH version increment** (`v1.0.1`): For minor bug fixes, small data updates, hyperparameter tuning leading to marginal improvements, or security patches that don't alter core functionality.
 
+2.  **Immutable Model Artifacts**: Once a model version is trained, validated, and deemed production-ready, it must be packaged as an **immutable artifact**. This means the model weights, configuration files, tokenizer, and any associated metadata are bundled together and cannot be altered. Recommended formats and storage:
+    *   **Hugging Face Model Hub Format**: This is the native format for LLaMA-Factory, allowing easy loading and sharing. The entire model directory (containing `config.json`, `pytorch_model.bin`, `tokenizer.json`, etc.) constitutes the artifact.
+    *   **ONNX/TensorRT**: For deployment optimization, models can be converted to formats like ONNX or TensorRT. These optimized artifacts should also be versioned.
+    *   **Secure Storage**: Store these immutable artifacts in a secure, versioned object storage system (e.g., AWS S3, Google Cloud Storage, Azure Blob Storage, or an internal ML artifact store like MLflow Model Registry). Each version should have a unique identifier (e.g., `s3://my-model-bucket/llama-enterprise/v1.2.3/`).
+
+3.  **Comprehensive Checkpointing**: During the training process, LLaMA-Factory automatically saves model checkpoints at regular intervals (defined by `--save_steps`). These checkpoints are crucial for:
+    *   **Recovery**: Resuming training from the last successful checkpoint in case of interruptions.
+    *   **Intermediate Versions**: Checkpoints can serve as intermediate model versions for experimentation or for creating a lineage of model development.
+    *   **Best Model Selection**: Saving the model with the best validation performance (e.g., `--save_total_limit` combined with `--load_best_model_at_end`).
+
+4.  **Robust Evaluation Suites**: For every new model version, a comprehensive suite of evaluation benchmarks must be run. This suite should include:
+    *   **Generalization Benchmarks**: To ensure the model retains its broad capabilities (e.g., common sense reasoning, language understanding).
+    *   **Task-Specific Benchmarks**: To measure performance on the target tasks for which the model was fine-tuned.
+    *   **Safety and Bias Benchmarks**: To assess potential biases, toxicity, and adherence to safety guidelines.
+    *   **Regression Testing**: Crucially, evaluate new versions against a set of "golden" examples or a baseline dataset to ensure that performance on previously mastered tasks has not degraded.
+
+5.  **A/B Testing and Canary Deployments**: For critical production deployments, a phased rollout strategy is recommended:
+    *   **A/B Testing**: Deploy the new model version alongside the current production model, routing a small percentage of traffic to the new version. Monitor key performance indicators (KPIs) and user feedback to compare its performance against the baseline.
+    *   **Canary Deployments**: Gradually increase the traffic to the new model version while continuously monitoring for anomalies, errors, or performance regressions. This allows for early detection of issues before a full rollout.
+
+6.  **Rollback Strategy**: Always have a well-defined and tested rollback strategy. If a new model version introduces regressions or unexpected behavior in production, you must be able to quickly revert to a previous stable version. This emphasizes the importance of immutable model artifacts and clear versioning.
+
+7.  **Documentation and Audit Trails**: Maintain thorough documentation for each model version, including:
+    *   Training data used.
+    *   Hyperparameters and configuration.
+    *   Evaluation results.
+    *   Known limitations or biases.
+    *   Deployment history.
+    
+    This creates an audit trail essential for debugging, compliance, and future development.
 ## 6. Enterprise-Grade Considerations
 
 ### 6.1 Scalability and Distributed Training
