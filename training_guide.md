@@ -58,7 +58,7 @@ Key parameters include:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0,1,2,3 python src/llamafactory/train/sft.py \
-    --model_name_or_path path/to/your/tokenizer \
+    --model_name_or_path path/to/your/tokenizer_or_new_model_config \
     --do_train \
     --dataset your_blank_slate_dataset \
     --dataset_dir data/ \
@@ -121,7 +121,7 @@ Fine-tuning configurations are similar to training from scratch, but you will sp
 
 Key parameters:
 
-*   `model_name_or_path`: Path to your pre-trained base model (e.g., `meta-llama/Llama-2-7b-hf`).
+*   `model_name_or_path`: Path to your pre-trained base model or the model you trained from scratch.
 *   `dataset`: Name of your custom fine-tuning dataset.
 *   `finetuning_type`: Choose `lora` (Low-Rank Adaptation) for efficient fine-tuning, `full` for full model fine-tuning, or `freeze`.
 *   Other parameters like `num_train_epochs`, `per_device_train_batch_size`, `learning_rate`, `output_dir`.
@@ -130,7 +130,7 @@ Key parameters:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python src/llamafactory/train/sft.py \
-    --model_name_or_path meta-llama/Llama-2-7b-hf \
+    --model_name_or_path path/to/your/base_model_or_sft_model \
     --do_train \
     --dataset your_custom_finetune_dataset \
     --dataset_dir data/ \
@@ -186,7 +186,7 @@ Create a `dataset_info.json` entry for your RL dataset:
 RL training involves a policy model (the LLM being optimized) and often a reference model (a frozen version of the policy model before RL). Key parameters include:
 
 *   `model_name_or_path`: Path to your SFT-tuned model.
-*   `ref_model`: Path to the reference model (often the same as `model_name_or_path` for DPO/KTO).
+*   `ref_model`: Path to the reference model (often the same as `model_name_or_path` for DPO/KTO, or a frozen version of your SFT model).
 *   `dataset`: Name of your RL dataset.
 *   `dpo_beta` or `kto_beta`: Hyperparameters for DPO/KTO loss.
 *   Other training parameters.
@@ -292,7 +292,7 @@ Example command for distributed training with Accelerate:
 
 ```bash
 accelerate launch --config_file path/to/accelerate_config.yaml src/llamafactory/train/sft.py \
-    --model_name_or_path meta-llama/Llama-2-7b-hf \
+    --model_name_or_path path/to/your/base_model_or_sft_model \
     --do_train \
     --dataset your_custom_finetune_dataset \
     --dataset_dir data/ \
