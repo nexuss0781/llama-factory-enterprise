@@ -61,6 +61,14 @@ class BaseModelArguments:
         default=True,
         metadata={"help": "Whether or not to use one of the fast tokenizer (backed by the tokenizers library)."},
     )
+    use_tiktoken: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to use Tiktoken tokenizer instead of HuggingFace tokenizer."},
+    )
+    tiktoken_encoding: str = field(
+        default="cl100k_base",
+        metadata={"help": "Tiktoken encoding name to use (e.g., cl100k_base, p50k_base, r50k_base)."},
+    )
     resize_vocab: bool = field(
         default=False,
         metadata={"help": "Whether or not to resize the tokenizer vocab and the embedding layers."},
